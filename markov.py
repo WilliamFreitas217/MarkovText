@@ -1,85 +1,82 @@
-import nltk
-import re
 import pprint
+from random_generator import MLCG
 import random
+
+import nltk
 
 
 class Markov(object):
-	def __init__(self, order=2, dictFile="", maxWordInSentence=20):
-		self.table = {}
-		self.inputLineCount = 0
-		self.inputWordCount = 0
-		self.setOrder( order )
-		self.setMaxWordInSentence(maxWordInSentence)
-		if dictFile:
-			self.loadDictionary(dictFile)
+    def __init__(self, order=2, dict_file="", max_word_in_sentence=20):
+        self.table = {}
+        self.mlcg = MLCG()
+        self.input_line_count = 0
+        self.input_word_count = 0
+        self.order = 0
+        self.max_word_in_sentence = 0
+        self.set_order(order)
+        self.set_max_word_in_sentence(max_word_in_sentence)
+        if dict_file:
+            self.load_dictionary(dict_file)
 
+    def set_order(self, order=2):
+        self.order = order
 
-	def setOrder(self, order=2):
-		self.order = order
+    def load_dictionary(self, dict_file):
+        with open(dict_file, 'r') as inf:
+            self.table = eval(inf.read())
 
-	def loadDictionary(self, dictFile):
-		with open(dictFile, 'r') as inf:
-			self.table = eval(inf.read())
-		# print("Loaded dictionary file:"+dictFile)
-		# pprint.pprint(self.table)
+    def read_file(self, file_name, file_encoding='utf-8'):
+        with open(file_name, 'r', encoding=file_encoding) as file:
+            self.process_section(' '.join(file))
 
-	def readFile(self, filename, fileEncoding="utf-8"):
-		with  open(filename, "r", encoding=fileEncoding) as file:
-			strLine = " ".join(file)
-			self.processSection(strLine)
+    def process_section(self, line):
+        sent_text = nltk.sent_tokenize(line)
 
-	def processSection(self,line ):
-	# global lineCount, wordCount, table, keyLen
-		sent_text = nltk.sent_tokenize(line) # this gives us a list of sentences
+        for sentence in sent_text:
+            self.input_line_count = self.input_line_count + 1
 
-		for sentence in sent_text:
-			self.inputLineCount = self.inputLineCount  + 1
+            tokens = sentence.split()
 
-			tokens = sentence.split()
-			keyList = [ ];
-			
-			#Add a special key with just beginning words
-			self.table.setdefault( '#BEGIN#', []).append(tokens[0:self.order ]);
+            key_list = []
 
-			#loop through each word, and if we have enough to add dictionary item, then add
-			for item in tokens:
-				if len(keyList) < self.order :  #not enough items
-					keyList.append(item)
-					continue
-				
-				#If we already have the item, then add it, otherwise add to empty list
-				self.table.setdefault( tuple(keyList), []).append(item)
+            self.table.setdefault('#BEGIN#', []).append(tokens[0:self.order])
 
-				#Remove the first word and push last word on to it
-				keyList.pop(0)
-				keyList.append(item)
-				self.inputWordCount = self.inputWordCount + 1
+            for item in tokens:
+                if len(key_list) < self.order:
+                    key_list.append(item)
+                    continue
 
-	def setMaxWordInSentence(self, maxWordInSentence):
-		self.maxWordInSentence = maxWordInSentence
+                self.table.setdefault(tuple(key_list), []).append(item)
 
-	def genText(self):	
-		key = list(random.choice(  self.table['#BEGIN#'] ))
-		genStr = " ".join( key )
-		for _ in range( self.maxWordInSentence ):
-			newKey = self.table.setdefault( tuple(key), "") 
-			if(newKey == ""):
-				break
-			newVal = random.choice( newKey )
-			genStr = genStr + " " + newVal
+                key_list.pop(0)
+                key_list.append(item)
+                self.input_word_count += 1
 
-			key.pop(0)
-			key.append(newVal)
+    def set_max_word_in_sentence(self, max_word_in_sentence):
+        self.max_word_in_sentence = max_word_in_sentence
 
-		return genStr
+    def generate_text(self):
+        key = int(self.mlcg.get_random_number(10, len(self.table['#BEGIN#'])))
+        key = self.table['#BEGIN#'][key]
+        generate_string = ' '.join(key)
+        for _ in range(self.max_word_in_sentence):
+            new_key = self.table.setdefault(tuple(key), '')
+            if new_key == '':
+                break
 
-	def getLineCount(self):
-		return self.inputLineCount
+            new_value = random.choice(new_key)
+            generate_string += ' ' + new_value
 
-	def getWordCount(self):
-		return self.inputWordCount
-  
-	def outputDict(self, filename):
-		markovDictFile=open(filename, 'w')
-		pprint.pprint(self.table,markovDictFile)
+            key.pop(0)
+            key.append(new_value)
+        return generate_string
+
+    def get_line_count(self):
+        return self.input_line_count
+
+    def get_word_count(self):
+        return self.input_word_count
+
+    def write_output_dict(self, file_name):
+        markov_dict_file = open(file_name, 'w')
+        pprint.pprint(self.table, markov_dict_file)
